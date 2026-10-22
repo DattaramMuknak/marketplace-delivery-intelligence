@@ -9,3 +9,4 @@ sentence-transformers>=3.3
 pinecone>=5.4
 openai>=1.55
 torch>=2.4
+bcrypt
