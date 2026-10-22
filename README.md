@@ -1,107 +1,159 @@
-# Delivery Intelligence — ML Analytics + RAG
+# Delivery Intelligence — Marketplace Delivery Analytics
 
-A Streamlit dashboard for the Marketplace Delivery Performance Analysis assignment. It has two interview-friendly sections:
-1. **ML & Analytics:** applies the assignment's SLA rule, shows courier summary and visualizations.
-2. **RAG Assistant:** indexes uploaded CSV rows with Hugging Face Sentence Transformers and Pinecone, then answers questions with the xAI Grok API.
+A Streamlit dashboard for the Marketplace Delivery Performance Analysis assignment. It analyzes delivery records, evaluates SLA performance, compares couriers, and visualizes city-wise delivery outcomes.
 
-Authentication uses MySQL and bcrypt password hashing.
+**Live Demo:** https://marketplace-delivery-intelligence.streamlit.app/  
+**GitHub Repository:** https://github.com/DattaramMuknak/marketplace-delivery-intelligence
 
-## 1. Requirements
+## Features
 
-- Python 3.10–3.12 recommended for compatibility with ML dependencies
-- A MySQL database reachable from your machine and (for deployment) from Streamlit Cloud
-- Pinecone API key
-- xAI API key for Grok
+- **Delivery SLA Analytics:** Classifies eligible orders as on-time or late.
+- **Performance Overview:** Displays eligible orders, on-time orders, on-time rate, and late orders.
+- **Courier Scorecard:** Compares courier performance using SLA on-time rates.
+- **City Performance:** Visualizes delivery outcomes across cities.
+- **Data Quality Checks:** Handles duplicate orders, test/internal records, and invalid delivery data.
+- **CSV Upload:** Analyze delivery records from uploaded datasets.
+- **Data Exploration:** View raw records, eligible orders, and courier summaries.
+- **CSV Downloads:** Download analysis results and courier-level summaries.
+- **User Authentication:** MySQL-backed registration and login with bcrypt password hashing.
 
-## 2. Setup locally (Windows PowerShell)
+## Technology Stack
+
+- **Language:** Python
+- **Dashboard:** Streamlit
+- **Data Processing:** Pandas
+- **Visualizations:** Plotly
+- **Database:** MySQL
+- **Authentication:** bcrypt
+- **Configuration:** Python dotenv and Streamlit Secrets
+
+## Project Structure
+
+```text
+marketplace-delivery-intelligence/
+├── app.py
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── src/
+│   ├── auth.py
+│   └── analytics.py
+└── data/
+    └── task1_marketplace_delivery_sla_raw.csv
+```
+
+## Requirements
+
+- Python 3.10 or later, compatible with the installed dependencies
+- MySQL database
+- Git
+
+## Local Setup (Windows)
+
+### 1. Clone the repository
 
 ```powershell
-# Open this folder in VS Code
+git clone https://github.com/DattaramMuknak/marketplace-delivery-intelligence.git
+cd marketplace-delivery-intelligence
+```
+
+### 2. Create a virtual environment
+
+```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+```
 
+### 3. Install dependencies
+
+```powershell
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-
-Copy-Item .env.example .env
-# Edit .env and add your real credentials
-streamlit run app.py
 ```
 
-If PowerShell blocks activation, run:
+### 4. Configure environment variables
+
+Copy the example environment file:
+
 ```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
+Copy-Item .env.example .env
 ```
 
-## 3. MySQL setup
+Add your MySQL connection details to `.env`:
 
-Create a database using your MySQL client:
-```sql
-CREATE DATABASE delivery_intelligence;
+```dotenv
+MYSQL_HOST=your-mysql-host
+MYSQL_PORT=3306
+MYSQL_USER=your-mysql-username
+MYSQL_PASSWORD=your-mysql-password
+MYSQL_DATABASE=your-database-name
 ```
-Then set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE` in `.env`. The app creates the `app_users` table automatically. Passwords are hashed with bcrypt; plaintext passwords are never stored.
 
-Do not use `localhost` for a deployed Streamlit app. Use a managed MySQL provider with network access configured for Streamlit Cloud. Restrict database privileges to this app's database and use TLS where supported.
+Keep your `.env` file private and do not commit it to GitHub.
 
-## 4. Pinecone + Grok
+### 5. Run the application
 
-- Create a Pinecone account and create an API key.
-- Create an xAI API key for Grok.
-- Add the keys to `.env`; never commit `.env` to GitHub.
-- The app creates the Pinecone index if it doesn't exist. The default embedding model has 384 dimensions; keep the index dimension at 384.
-- First use downloads the Sentence Transformer model and can take a little time.
-
-## 5. Deploy to Streamlit Community Cloud
-
-1. Push this project to a GitHub repository **without `.env`**.
-2. Open Streamlit Community Cloud and deploy the repository with `app.py` as the entry point.
-3. In app settings, add the environment values under **Secrets** using TOML syntax:
-   ```toml
-   MYSQL_HOST = "your-host"
-   MYSQL_PORT = "3306"
-   MYSQL_USER = "your-user"
-   MYSQL_PASSWORD = "your-password"
-   MYSQL_DATABASE = "delivery_intelligence"
-   PINECONE_API_KEY = "your-pinecone-key"
-   PINECONE_INDEX_NAME = "delivery-intelligence"
-   PINECONE_CLOUD = "aws"
-   PINECONE_REGION = "us-east-1"
-   XAI_API_KEY = "your-xai-key"
-   XAI_MODEL = "grok-3-mini"
-   HF_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-   ```
-4. Make sure your hosted MySQL firewall allows the deployment to connect. Do not expose database credentials in source code or screenshots.
-
-The app reads environment variables. On Streamlit Cloud, `st.secrets` is not automatically exported to `os.environ`, so add this snippet near the top of `app.py` **before importing app modules** if using Streamlit Secrets:
-```python
-# Streamlit Cloud Secrets -> environment variables
-for key, value in st.secrets.items():
-    if isinstance(value, (str, int, float)):
-        os.environ.setdefault(key, str(value))
+```powershell
+python -m streamlit run app.py
 ```
-Place it immediately after `load_dotenv()` and before `from src.auth...` imports, or alternatively modify the helper functions to read `st.secrets` directly. This matters for cloud deployment.
 
-## 6. Assignment logic / assumptions
+## MySQL Database
 
-- Date scope: orders whose `delivered_at` is in May 2026.
-- Test/internal orders are excluded.
-- Duplicate `order_id` values are deduplicated by keeping the latest `updated_at` record.
-- Only records with status `Delivered`, valid shipped/delivered dates, non-negative transit, and positive `promised_days` are eligible.
-- Courier labels are normalized (`shipquick` → `ShipQuick`, `Fastbee` → `FastBee`, `Bluedart` → `Blue Dart`).
-- On time if `actual_transit_days <= promised_days`.
-- Cancelled, undelivered, out-of-month, test, and invalid-SLA records are excluded.
+MySQL is used for user registration and authentication. The application creates the `app_users` table automatically when `init_db()` runs.
 
-## 7. Explain it in an interview
+User information includes:
 
-**ML & Analytics:** “I clean inconsistent dates and courier labels, remove duplicate order IDs, filter delivered non-test orders delivered in May 2026, calculate transit days, classify on-time vs late using the SLA, then aggregate the courier-level rate. Plotly charts show courier comparison and city outcomes.”
+- User ID
+- Full name
+- Email address
+- bcrypt password hash
+- Account creation timestamp
 
-**RAG:** “Each CSV row is converted into readable text, embedded using a Hugging Face Sentence Transformer, and stored in Pinecone. At question time, I embed the query, retrieve the most relevant rows, and pass only that context to Grok. The answer includes retrieved source snippets. Semantic retrieval is useful for questions, but exact numeric aggregation should use Pandas/SQL rather than assume top-k retrieval includes every row.”
+Passwords are hashed before being stored in the database.
 
-**Authentication:** “Users register and log in with MySQL. Passwords are hashed with bcrypt. Pinecone namespaces are separated per user so one account's retrieval doesn't query another account's vectors.”
+## Deployment on Streamlit Community Cloud
 
-## Important limitations
+**Live application:** https://marketplace-delivery-intelligence.streamlit.app/
 
-- The supplied file has only 10 raw rows and duplicate/inconsistent records. It is not sufficient to train or validate a trustworthy predictive ML classifier. The dashboard therefore uses the exact transparent SLA rule from the assignment and explains that a predictive model needs more historical examples.
-- For production, add rate limiting, email verification, account recovery, session expiry, database TLS, upload-size limits, and a proper secrets manager.
-- This is a starter project. Test MySQL/Pinecone/xAI credentials and connectivity in your target environment before the interview/demo.
+To deploy the application:
+
+1. Push the project to GitHub without `.env` or other secret files.
+2. Open [Streamlit Community Cloud](https://share.streamlit.io/).
+3. Connect your GitHub account and select the repository.
+4. Set `app.py` as the main file.
+5. Open the app settings and configure your database credentials under **Secrets**.
+
+Use TOML format for Streamlit Secrets:
+
+```toml
+[mysql]
+host = "your-mysql-host"
+port = 3306
+database = "your-database-name"
+username = "your-mysql-username"
+password = "your-mysql-password"
+```
+
+Replace the placeholders with your actual database details. Ensure the authentication code reads the `[mysql]` configuration from Streamlit Secrets when deployed.
+
+## Analytics Logic
+
+- Filter delivery records according to the assignment's date and status requirements.
+- Remove duplicate `order_id` records, keeping the latest `updated_at` record.
+- Exclude test and internal orders.
+- Validate delivery dates, transit duration, and promised delivery days.
+- Normalize courier names for consistent reporting.
+- Calculate actual transit days.
+- Classify deliveries as on-time when `actual_transit_days <= promised_days`.
+- Aggregate results for courier-level and city-level analysis.
+
+## Author
+
+**Dattaram Muknak**
+
+- GitHub: https://github.com/DattaramMuknak
+- Live Project: https://marketplace-delivery-intelligence.streamlit.app/
+
+---
+
+*Delivery Intelligence — Clear data. Meaningful insights. Better delivery decisions.*
